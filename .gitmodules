@@ -1,0 +1,3 @@
+[submodule "hdbc-mysql"]
+	path = hdbc-mysql
+	url = https://github.com/bos/hdbc-mysql.git
