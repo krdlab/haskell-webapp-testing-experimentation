@@ -1,14 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module WS.Cache where
 
+import Control.Applicative (Applicative)
 import Data.ByteString (ByteString)
-import Data.Serialize (Serialize, encode, decode)
 import qualified Database.Redis as Redis
+import Data.Serialize (Serialize, encode, decode)
 
 connect' :: IO Redis.Connection
 connect' = Redis.connect Redis.defaultConnectInfo { Redis.connectHost = "172.17.0.8" }
 
-class Monad m => MonadCache m where
+class (Functor m, Applicative m, Monad m) => MonadCache m where
     get :: (Serialize a) => ByteString -> m (Maybe a)
     set :: (Serialize a) => ByteString -> a -> m ()
 

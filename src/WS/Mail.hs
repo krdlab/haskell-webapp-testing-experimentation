@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module WS.Mail where
 
+import Control.Applicative (Applicative)
 import Data.Text (Text)
 import Data.Text.Lazy (fromStrict)
 import Network.Mail.SMTP as SMTP
 
-class Monad m => MonadMail m where
+class (Functor m, Applicative m, Monad m) => MonadMail m where
     sendMail :: Text -> Text -> Text -> Text -> m ()
 
 instance MonadMail IO where

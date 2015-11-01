@@ -8,18 +8,18 @@ module WS.Types where
 import Control.Applicative ((<$>), (<*>))
 import Data.Aeson
 import Data.Aeson.Types
+import Data.Fixed (Pico)
 import Data.Serialize
 import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Data.Time (LocalTime(..), Day(..), TimeOfDay(..))
-import Data.Fixed (Pico)
-import GHC.Generics (Generic)
-import Prelude hiding (id)
-import WS.DB
 import Database.HDBC.Query.TH (makeRecordPersistableDefault)
 import Database.Record.TH (derivingShow)
-import Language.Haskell.TH.Name.CamelCase (conCamelcaseName)
 import Database.Relational.Query
+import GHC.Generics (Generic)
+import Language.Haskell.TH.Name.CamelCase (conCamelcaseName)
+import Prelude hiding (id)
+import WS.DB
 
 --data User = User
 --    { id             :: Int

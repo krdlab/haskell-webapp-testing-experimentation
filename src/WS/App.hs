@@ -1,22 +1,26 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 module WS.App where
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad.IO.Class (liftIO)
+import Control.Exception (Exception)
+import Control.Monad.Catch (MonadThrow, MonadCatch, throwM, catch)
 import Control.Monad.Trans.Class (lift)
-import Data.ByteString (ByteString)
+import qualified Control.Monad.Trans.Either as E
 import qualified Data.ByteString.Char8 as BS
 import Data.Text (Text, pack)
 import Data.Time (getCurrentTimeZone, getCurrentTime, utcToLocalTime, LocalTime)
+import Data.Typeable (Typeable)
+import Database.Relational.Query
 import Servant
-import WS.Types as User
 import WS.Cache as Cache
 import WS.DB as DB
 import WS.Mail as Mail
-import Database.Relational.Query
-import Data.Int (Int32)
+import qualified WS.Types as User
+import WS.Types (User, user, tableOfUser, InsertUser(..), piUser, RegForm(..), LoginForm(..))
 
 type API =   "register" :> ReqBody '[JSON] RegForm :> Post '[JSON] User
         :<|> "login" :> ReqBody '[JSON] LoginForm :> Post '[] ()
@@ -30,43 +34,58 @@ server = registerH
     :<|> loginH
     :<|> getUserH
   where
-    registerH f = lift $ register f
-    loginH    f = lift $ login f
-    getUserH  i = lift $ getUser i
+    registerH f = lift (register f) `catch` errorH
+    loginH    f = lift (login f)    `catch` errorH
+    getUserH  i = lift (getUser i)  `catch` errorH
+    -- errorH :: Monad m => AppException -> E.EitherT ServantErr m a
+    errorH NotFound = E.left err404
 
-register :: RegForm -> IO User      -- TODO: MonadMail m, MonadCache m, MonadDB m => ...
+-- handlers
+
+data AppException = NotFound deriving (Show, Typeable)
+instance Exception AppException
+
+class (MonadCatch m, MonadMail m, MonadCache m, MonadDB m) => App m where
+    getCurrentLocalTime :: m LocalTime
+
+instance App IO where
+    getCurrentLocalTime = utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime
+
+register :: App m => RegForm -> m User
 register form = do
     lt <- getCurrentLocalTime
-    insertUser' (regName form) (regEmailAddress form) lt
+    _ <- insertUser' (regName form) (regEmailAddress form) lt
     user' <- getUserByName (regName form)
-    sendMail "admin@example.com" (emailAddress user') "register" (pack $ "registered at " ++ show lt)
+    sendMail "admin@example.com" (User.emailAddress user') "register" (pack $ "registered at " ++ show lt)
     return user'
 
-login :: LoginForm -> IO ()
+login :: App m => LoginForm -> m ()
 login form = do
     lt <- getCurrentLocalTime
-    let name = loginName form
-    updateUser' name lt
-    user' <- getUserByName name
-    sendMail "admin@example.com" (emailAddress user') "login" (pack $ "logged-in at " ++ show lt)
+    let name' = loginName form
+    _ <- updateUser' name' lt
+    user' <- getUserByName name'
+    sendMail "admin@example.com" (User.emailAddress user') "login" (pack $ "logged-in at " ++ show lt)
 
-getUser :: Int -> IO User
-getUser uid = do
-    user' <- getUserCache uid
-    case user' of
-        Just user -> return user
+getUser :: App m => Int -> m User
+getUser userId = do
+    u <- getUserCache userId
+    case u of
+        Just u' -> return u'
         Nothing   -> do
-            u <- getUserById uid
-            setUserCache u
-            return u
+            u' <- getUserById userId
+            setUserCache u'
+            return u'
 
-getUserCache :: Int -> IO (Maybe User)
-getUserCache key = Cache.get (BS.pack . show $ key)
+-- operations
 
-setUserCache :: User -> IO ()
+getUserCache :: MonadCache m => Int -> m (Maybe User)
+getUserCache pk = Cache.get (BS.pack . show $ pk)
+
+setUserCache :: MonadCache m => User -> m ()
 setUserCache u = Cache.set (BS.pack . show $ User.id u) u
 
-insertUser' :: Text -> Text -> LocalTime -> IO Integer
+insertUser' :: MonadDB m => Text -> Text -> LocalTime -> m Integer
 insertUser' name addr time = insert (typedInsert tableOfUser piUser) ins
   where
     ins = InsertUser { insName = name
@@ -75,28 +94,33 @@ insertUser' name addr time = insert (typedInsert tableOfUser piUser) ins
                      , insLastLoggedinAt = time
                      }
 
-updateUser' :: Text -> LocalTime -> IO Integer
+updateUser' :: MonadDB m => Text -> LocalTime -> m Integer
 updateUser' name time = update (typedUpdate tableOfUser target) ()
   where
     target = updateTarget $ \proj -> do
         User.lastLoggedinAt' <-# value time
         wheres $ proj ! User.name' .=. value name
 
-getUserById :: Int -> IO User
-getUserById i = head <$> select (relationalQuery rel) (fromIntegral i)  -- TODO: empty list
+getUserById :: (MonadThrow m, MonadDB m) => Int -> m User
+getUserById pk = do
+    res <- select (relationalQuery rel) (fromIntegral pk)
+    if null res
+        then throwM NotFound
+        else return $ head res
   where
     rel = relation' . placeholder $ \ph -> do
         u <- query user
         wheres $ u ! User.id' .=. ph
         return u
 
-getUserByName :: Text -> IO User
-getUserByName n = head <$> select (relationalQuery rel) n               -- TODO: empty list
+getUserByName :: (MonadThrow m, MonadDB m) => Text -> m User
+getUserByName name = do
+    res <- select (relationalQuery rel) name
+    if null res
+        then throwM NotFound
+        else return $ head res
   where
     rel = relation' . placeholder $ \ph -> do
         u <- query user
         wheres $ u ! User.name' .=. ph
         return u
-
-getCurrentLocalTime :: IO LocalTime
-getCurrentLocalTime = utcToLocalTime <$> getCurrentTimeZone <*> getCurrentTime
