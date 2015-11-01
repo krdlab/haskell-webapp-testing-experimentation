@@ -5,10 +5,13 @@
 * Redis
 * MySQL
 * MailCatcher
+* SQLite
 
 ```sql
-CREATE DATABASE test DEFAULT CHARACTER SET utf8mb4;
-CREATE TABLE test.user (
+-- $ mysql -u root -p
+
+CREATE DATABASE main DEFAULT CHARACTER SET utf8mb4;
+CREATE TABLE main.user (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(64) NOT NULL,
     email_address VARCHAR(128) NOT NULL,
@@ -17,7 +20,24 @@ CREATE TABLE test.user (
     UNIQUE KEY unique_user_name (name),
     UNIQUE KEY unique_user_email_address (email_address)
 );
+CREATE USER 'tester'@"%" IDENTIFIED BY 'tester';
+GRANT ALL PRIVILEGES ON main.* TO 'tester'@"%";
 ```
+
+```sql
+-- $ sqlite3 test.db
+
+CREATE TABLE user (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(64) NOT NULL UNIQUE,
+    email_address VARCHAR(128) NOT NULL UNIQUE,
+    created_at DATETIME NOT NULL,
+    last_loggedin_at DATETIME NOT NULL
+);
+```
+
+SQLite uses "main" as a virtual database name. I don't know how to rename it.
+Thus both MySQL and SQLite use "main" as a database name here.
 
 ## Build & Run
 
@@ -47,4 +67,11 @@ $ curl -X GET \
 
 ## Test
 
-TODO
+```sh
+$ cabal install --only-dependencies --enable-tests
+$ cabal configure --enable-tests
+$ cabal build
+$ cabal test
+```
+
+`registerSpec` uses `MockApp`. `MockApp` emulates IO actions and doesn't access to an external process.

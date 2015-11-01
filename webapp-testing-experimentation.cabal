@@ -44,6 +44,35 @@ library
     , HDBC
     , HDBC-session
     , HDBC-mysql >=0.6.6.2
+
+test-suite spec
+  type:                 exitcode-stdio-1.0
+  hs-source-dirs:       test
+  default-language:     Haskell2010
+  ghc-options:          -Wall
+  main-is:              Spec.hs
+  build-depends:
+      base
+    , hspec
+    , hspec-wai
+    , webapp-testing-experimentation
+    , servant-server
+    , wai
+    , aeson
+    , http-types
+    , transformers
+    , mtl
+    , time
+    , smtp-mail
+    , mime-mail
+    , exceptions
+    , bytestring
+    , text
+    , containers
+    , cereal
+    , HDBC
+    , HDBC-session
+    , relational-query-HDBC
     , HDBC-sqlite3
 
 executable server
@@ -76,4 +105,3 @@ executable server
     , HDBC
     , HDBC-session
     , HDBC-mysql >=0.6.6.2
-    , HDBC-sqlite3

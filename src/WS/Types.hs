@@ -14,7 +14,7 @@ import Data.Text (Text)
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import Data.Time (LocalTime(..), Day(..), TimeOfDay(..))
 import Database.HDBC.Query.TH (makeRecordPersistableDefault)
-import Database.Record.TH (derivingShow)
+import Database.Record.TH (derivingEq, derivingShow)
 import Database.Relational.Query
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Name.CamelCase (conCamelcaseName)
@@ -32,9 +32,9 @@ import WS.DB
 
 $(defineTable
     [("VARCHAR", [t|Text|])]
-    "test"
+    "main"
     "user"
-    [derivingShow, conCamelcaseName "Generic"])
+    [derivingEq, derivingShow, conCamelcaseName "Generic"])
 
 data InsertUser = InsertUser
     { insName           :: Text
@@ -77,8 +77,14 @@ instance Serialize LocalTime where
         put $ localTimeOfDay lt
     get = LocalTime <$> get <*> get
 
+options :: Options
+options = defaultOptions { fieldLabelModifier = camelTo2 '_' }
+
+instance FromJSON User where
+    parseJSON = genericParseJSON options
+
 instance ToJSON User where
-    toJSON = genericToJSON defaultOptions { fieldLabelModifier = camelTo2 '_' }
+    toJSON = genericToJSON options
 
 data RegForm = RegForm
     { regName         :: Text
@@ -87,7 +93,10 @@ data RegForm = RegForm
   deriving (Eq, Generic, Show)
 
 instance FromJSON RegForm where
-    parseJSON = genericParseJSON defaultOptions { fieldLabelModifier = camelTo2 '_' }
+    parseJSON = genericParseJSON options
+
+instance ToJSON RegForm where
+    toJSON = genericToJSON options
 
 data LoginForm = LoginForm
     { loginName :: Text
@@ -95,4 +104,7 @@ data LoginForm = LoginForm
   deriving (Eq, Generic, Show)
 
 instance FromJSON LoginForm where
-    parseJSON = genericParseJSON defaultOptions { fieldLabelModifier = camelTo2 '_' }
+    parseJSON = genericParseJSON options
+
+instance ToJSON LoginForm where
+    toJSON = genericToJSON options

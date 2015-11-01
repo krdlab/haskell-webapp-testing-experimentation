@@ -20,7 +20,7 @@ connect = connectMySQL info
     info = defaultMySQLConnectInfo {
               mysqlUser = "tester"
             , mysqlPassword = "tester"
-            , mysqlDatabase = "test"
+            , mysqlDatabase = "main"
             , mysqlHost = "172.17.0.7"
             }
 

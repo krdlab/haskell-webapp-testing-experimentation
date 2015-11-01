@@ -42,6 +42,9 @@ server = registerH
 
 -- handlers
 
+adminAddress :: Text
+adminAddress = "admin@example.com"
+
 data AppException = NotFound deriving (Show, Typeable)
 instance Exception AppException
 
@@ -56,7 +59,11 @@ register form = do
     lt <- getCurrentLocalTime
     _ <- insertUser' (regName form) (regEmailAddress form) lt
     user' <- getUserByName (regName form)
-    sendMail "admin@example.com" (User.emailAddress user') "register" (pack $ "registered at " ++ show lt)
+    sendMail
+        adminAddress
+        (User.emailAddress user')
+        "register"
+        (pack $ "registered at " ++ show lt)
     return user'
 
 login :: App m => LoginForm -> m ()
@@ -65,7 +72,11 @@ login form = do
     let name' = loginName form
     _ <- updateUser' name' lt
     user' <- getUserByName name'
-    sendMail "admin@example.com" (User.emailAddress user') "login" (pack $ "logged-in at " ++ show lt)
+    sendMail
+        adminAddress
+        (User.emailAddress user')
+        "login"
+        (pack $ "logged-in at " ++ show lt)
 
 getUser :: App m => Int -> m User
 getUser userId = do
